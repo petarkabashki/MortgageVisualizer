@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<link href="nvd3/src/nv.d3.css" rel="stylesheet" type="text/css">
+
+<style>
+
+    body {
+        overflow-y: scroll;
+    }
+
+    text {
+        font: 12px sans-serif;
+    }
+
+    svg {
+        display: block;
+    }
+    .chart-percent {
+        width: 800px;
+    }
+
+</style>
+<body>
+
+<h2>Monthly loan/mortgage repayment calculator</h2>
+<p>
+    Interactive chart comparing the monthly repayments for different interest rates on loans/mortgages.<br>
+</p>
+<!--<input type="range" name="points" min="0" max="1000000" step="10000">100000-->
+<div class="chart-percent" class='with-transitions'>
+    <svg></svg>
+</div>
+
+<script src="nvd3/lib/d3.v3.js"></script>
+<script src="nvd3/nv.d3.js"></script>
+<script src="nvd3/src/tooltip.js"></script>
+<script src="nvd3/src/utils.js"></script>
+<script src="nvd3/src/models/legend.js"></script>
+<script src="nvd3/src/models/axis.js"></script>
+<script src="nvd3/src/models/scatter.js"></script>
+<script src="nvd3/src/models/line.js"></script>
+<script src="nvd3/src/models/lineChart.js"></script>
+
+
+<!--<script src="js/mortgage.js"></script>-->
+
+<script>
+
+    var years = 25;
+
+    createChart('.chart-percent',
+            d3.range(0.5, 6, 0.5).map(function(v){
+                return {
+                    values: d3.range(0,610000, 10000).map(function(p){
+                        return {x: p, y: -PMT(v / 12 / 100, years * 12, p, 0, 1)};
+                    }),
+                    key: "Monthly repayments @ " + v + '%',
+                    color: "hsl("+ (5 - v) * 50 +",70%,50%)"
+                };
+            })
+    );
+
+////////////////////////////////////////////////////////////
+
+    function PMT(rate, nper, pv, fv, type) {
+        if (!fv) fv = 0;
+        if (!type) type = 0;
+
+        if (rate == 0) return -(pv + fv) / nper;
+
+        var pvif = Math.pow(1 + rate, nper);
+        var pmt = rate / (pvif - 1) * -(pv * pvif + fv);
+
+        if (type == 1) {
+            pmt /= (1 + rate);
+        }
+        ;
+
+        return pmt;
+    }
+
+    function montlyRepaymentsByPrincipal(percent, years, principal) {
+        var points = [],
+                step = principal / 100;
+
+        for (var i = 0; i <= principal; i += step) {
+            points.push({x: i, y: -PMT(percent / 12 / 100, years * 12, i, 0, 1)});
+        }
+        return {
+            values: points,
+            key: "Monthly repayments",
+            color: "#ff7f0e"
+        };
+    }
+
+    function createChart(containerSelector, points) {
+        var container = d3.select(containerSelector);
+        var svg = d3.select(containerSelector + ' svg')
+
+        nv.addGraph(function () {
+            var chart = nv.models.lineChart();
+            var fitScreen = false;
+            var width = 400;
+            var height = 200;
+            var zoom = 2;
+
+            chart.useInteractiveGuideline(true);
+            chart.xAxis
+                    .axisLabel("Loan/Mortgage(£)")
+                    .tickFormat(d3.format(',r'));
+
+            chart.yAxis
+                    .axisLabel('Monthly repayment(£)')
+                    .tickFormat(d3.format(',.2f'));
+
+            svg
+                    .attr('perserveAspectRatio', 'xMinYMid')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .datum(points);
+
+            setChartViewBox();
+            resizeChart();
+
+            nv.utils.windowResize(resizeChart);
+
+            function setChartViewBox() {
+                var w = width * zoom,
+                        h = height * zoom,
+                        ww = (20 + width) * zoom,
+                        hh = (20 + height) * zoom;
+
+                chart
+                        .width(w)
+                        .height(h);
+
+                svg
+                        .attr('viewBox', '0 0 ' + ww + ' ' + hh)
+                        .transition().duration(500)
+                        .call(chart);
+            }
+
+            // This resize simply sets the SVG's dimensions, without a need to recall the chart code
+            // Resizing because of the viewbox and perserveAspectRatio settings
+            // This scales the interior of the chart unlike the above
+            function resizeChart() {
+                // resize based on container's width
+                var aspect = chart.width() / chart.height();
+                var targetWidth = parseInt(container.style('width'));
+                svg.attr("width", targetWidth);
+                svg.attr("height", Math.round(targetWidth / aspect));
+            };
+
+
+            return chart;
+        });
+
+    }
+
+
+</script>
